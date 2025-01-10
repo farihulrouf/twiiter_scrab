@@ -155,14 +155,14 @@ export class ScrapeService {
     });
   }
 
-  async scrapeAndSend(input: string): Promise<void> {
+  async scrapeAndSend(username: string): Promise<void> {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
   
     try {
-      // Menentukan URL berdasarkan input
-      const url = input.startsWith('http') ? input : `https://x.com/${input}`;
+      // Menentukan URL berdasarkan username
+      const url = `https://x.com/${username}`;
       console.log(`[INFO] Navigating to URL: ${url}`);
   
       console.log('[INFO] Opening browser and setting cookies...');
@@ -179,8 +179,14 @@ export class ScrapeService {
       }
   
       console.log('[INFO] Sending posts to webhook and saving images...');
-      for (const { text, images, date, username } of posts) {
-        const payload = { text, images, date, input };
+      for (const { text, images, date } of posts) {
+        // Menyusun payload dengan username
+        const payload = {
+          text,
+          images: images || "",  // Pastikan images memiliki nilai default jika tidak ada gambar
+          date,
+          username,  // Mengganti 'input' menjadi 'username'
+        };
   
         await this.sendToWebhook(payload);
       }
@@ -193,5 +199,6 @@ export class ScrapeService {
       await browser.close();
     }
   }
+  
   
 }
