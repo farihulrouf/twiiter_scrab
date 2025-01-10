@@ -74,7 +74,6 @@ export class ScrapeService {
       console.error(`[ERROR] Failed to save image: ${imageUrl}`, error.message);
     }
   }
-  
 
   // Fungsi untuk mengirimkan data ke webhook
   async sendToWebhook(data: any): Promise<void> {
@@ -99,7 +98,7 @@ export class ScrapeService {
     let retries = 0;
 
     while (retries < 3 && posts.length < 40) {
-      const newPosts = await page.locator('article').evaluateAll((nodes: any[]) => 
+      const newPosts = await page.locator('article').evaluateAll((nodes: any[]) =>
         nodes.map((node) => {
           const text = node.innerText || '';
           const images = Array.from(node.querySelectorAll('img') as NodeListOf<HTMLImageElement>)
@@ -151,26 +150,31 @@ export class ScrapeService {
       }
     }
 
-    return posts.map(post => {
-      const payload = { 
-        text: post.text, 
+    // Mengirimkan data dan menyimpan gambar satu per satu
+    for (const post of posts) {
+      const payload = {
+        text: post.text,
         images: post.images.length > 0 ? post.images[0] : "",
         date: post.date,
       };
 
+      // Jika ada video, kirim email
       if (post.videos.length > 0) {
         console.log(`[INFO] Video found in post: ${post.text || 'No text'} - Video URL: ${post.videos[0]}`);
         this.sendEmail('New Post with Video', `A new post contains a video:\n\nText: ${post.text || 'No text'}\nVideo URL: ${post.videos[0]}`);
       }
 
+      // Jika ada gambar, simpan gambar dan kirim data ke webhook
       if (post.images.length > 0) {
         const firstImage = post.images[0];
         const filename = `${Date.now()}_${firstImage.split('/').pop()}`;
-        this.saveImage(firstImage, filename);
+        await this.saveImage(firstImage, filename);  // Menyimpan gambar
       }
 
-      return payload;
-    });
+      await this.sendToWebhook(payload);  // Mengirim data ke webhook
+    }
+
+    return posts;
   }
 
   async scrapeAndSend(username: string): Promise<void> {
@@ -217,6 +221,4 @@ export class ScrapeService {
       await browser.close();
     }
   }
-  
-  
 }
