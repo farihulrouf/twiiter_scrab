@@ -45,18 +45,36 @@ export class ScrapeService {
   // Fungsi untuk menyimpan gambar
   async saveImage(imageUrl: string, filename: string): Promise<void> {
     try {
+      // Ensure the 'images' directory exists
+      if (!fs.existsSync('images')) {
+        fs.mkdirSync('images');
+      }
+  
+      // Clean up the filename (remove invalid characters)
+      const cleanedFilename = filename.replace(/[<>:"/\\|?*]+/g, '_'); // Sanitize filename
+  
+      // Ensure the filename ends with .jpg
+      const finalFilename = `${cleanedFilename}.jpg`;
+  
+      // Ensure file is saved with the correct filename
+      const filePath = `images/${finalFilename}`;
+  
+      // If the URL contains query parameters, extract the file name without them
       const response = await axios.get(imageUrl, { responseType: 'stream' });
-      const writer = fs.createWriteStream(`images/${filename}`);
+      const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
+  
       await new Promise((resolve, reject) => {
         writer.on('finish', resolve);
         writer.on('error', reject);
       });
-      console.log(`[INFO] Image saved: images/${filename}`);
+  
+      console.log(`[INFO] Image saved: ${filePath}`);
     } catch (error) {
-      console.error(`[ERROR] Failed to save image: ${imageUrl}`);
+      console.error(`[ERROR] Failed to save image: ${imageUrl}`, error.message);
     }
   }
+  
 
   // Fungsi untuk mengirimkan data ke webhook
   async sendToWebhook(data: any): Promise<void> {
