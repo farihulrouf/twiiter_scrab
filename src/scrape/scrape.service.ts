@@ -6,7 +6,7 @@ import * as nodemailer from 'nodemailer';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-const WEBHOOK_URL = 'https://play.svix.com/in/e_DMzteFj7im5rZmEAJ58h1Ka2nVR/';
+const WEBHOOK_URL = 'http://localhost:3000/posts';
 
 @Injectable()
 export class ScrapeService {

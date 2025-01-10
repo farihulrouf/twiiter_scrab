@@ -17,6 +17,5 @@ export class Post {
   @Column('varchar', { length: 255, nullable: true })
   username: string;
 
-  @Column('varchar', { length: 255, nullable: true })
-  title: string; // Pastikan kolom ini nullable jika diperbolehkan memiliki null
 }
+
