@@ -5,7 +5,8 @@ import * as fs from 'fs';
 import * as nodemailer from 'nodemailer';
 import * as dotenv from 'dotenv';
 dotenv.config();
-const WEBHOOK_URL = 'https://play.svix.com/in/e_DMzteFj7im5rZmEAJ58h1Ka2nVR/'; // Webhook yang digunakan
+
+const WEBHOOK_URL = 'https://play.svix.com/in/e_DMzteFj7im5rZmEAJ58h1Ka2nVR/';
 
 @Injectable()
 export class ScrapeService {
@@ -21,19 +22,14 @@ export class ScrapeService {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,  // Gunakan email Anda yang terdaftar di .env
-        pass: process.env.EMAIL_PASSWORD, // Gunakan kata sandi aplikasi dari .e
-        //iegyrxnkmfkmskf sufaah96@gmail.com
-
-
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
       },
     });
 
-   
-
     const mailOptions = {
-      from:  process.env.EMAIL_USER, // Ganti dengan email pengirim
-      to: process.env.EMAIL_RECEIVER,     // Ganti dengan email penerima
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_RECEIVER,
       subject: subject,
       text: text,
     };
@@ -132,7 +128,7 @@ export class ScrapeService {
       lastHeight = currentHeight;
 
       if (posts.length >= 40) {
-        console.log('[INFO] Reached 10 posts. Stopping scraping...');
+        console.log('[INFO] Reached 40 posts. Stopping scraping...');
         break;
       }
     }
@@ -159,32 +155,36 @@ export class ScrapeService {
     });
   }
 
-  async scrapeAndSend(url: string): Promise<void> {
+  async scrapeAndSend(input: string): Promise<void> {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
-
+  
     try {
+      // Menentukan URL berdasarkan input
+      const url = input.startsWith('http') ? input : `https://x.com/${input}`;
+      console.log(`[INFO] Navigating to URL: ${url}`);
+  
       console.log('[INFO] Opening browser and setting cookies...');
       await this.loadCookies(context);
-
-      console.log(`[INFO] Navigating to URL: ${url}`);
+  
+      // Navigasi ke URL
       await page.goto(url, { waitUntil: 'domcontentloaded' });
-
+  
       const posts = await this.scrapePosts(page);
-
+  
       if (posts.length === 0) {
         console.error('[ERROR] No posts found.');
         return;
       }
-
+  
       console.log('[INFO] Sending posts to webhook and saving images...');
-      for (const { text, images, date } of posts) {
-        const payload = { text, images, date };
-
+      for (const { text, images, date, username } of posts) {
+        const payload = { text, images, date, input };
+  
         await this.sendToWebhook(payload);
       }
-
+  
       console.log('[SUCCESS] All posts processed.');
     } catch (error) {
       console.error('[ERROR] An error occurred:', error.message);
@@ -193,4 +193,5 @@ export class ScrapeService {
       await browser.close();
     }
   }
+  
 }
