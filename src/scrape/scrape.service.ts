@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { chromium } from 'playwright';
 import axios from 'axios';
 import * as fs from 'fs';
@@ -6,11 +7,10 @@ import * as nodemailer from 'nodemailer';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-const WEBHOOK_URL = 'http://localhost:3000/posts';
+const DATABASE_POST = 'http://localhost:3000/posts';
 
 @Injectable()
 export class ScrapeService {
-
   // Fungsi untuk memuat cookies
   async loadCookies(context: any): Promise<void> {
     const cookies = JSON.parse(fs.readFileSync('cookies.json', 'utf8'));
@@ -45,46 +45,39 @@ export class ScrapeService {
   // Fungsi untuk menyimpan gambar
   async saveImage(imageUrl: string, filename: string): Promise<void> {
     try {
-      // Ensure the 'images' directory exists
       if (!fs.existsSync('images')) {
         fs.mkdirSync('images');
       }
-  
-      // Clean up the filename (remove invalid characters)
-      const cleanedFilename = filename.replace(/[<>:"/\\|?*]+/g, '_'); // Sanitize filename
-  
-      // Ensure the filename ends with .jpg
+
+      const cleanedFilename = filename.replace(/[<>:"/\\|?*]+/g, '_');
       const finalFilename = `${cleanedFilename}.jpg`;
-  
-      // Ensure file is saved with the correct filename
       const filePath = `images/${finalFilename}`;
-  
-      // If the URL contains query parameters, extract the file name without them
+
       const response = await axios.get(imageUrl, { responseType: 'stream' });
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
-  
+
       await new Promise((resolve, reject) => {
         writer.on('finish', resolve);
         writer.on('error', reject);
       });
-  
+
       console.log(`[INFO] Image saved: ${filePath}`);
     } catch (error) {
       console.error(`[ERROR] Failed to save image: ${imageUrl}`, error.message);
     }
   }
 
-  // Fungsi untuk mengirimkan data ke webhook
-  async sendToWebhook(data: any): Promise<void> {
+  // Fungsi untuk mengirimkan data ke daabase
+  async sendTodbPostgre(data: any): Promise<void> {
     try {
-      console.log(`[DEBUG] Sending data to webhook: ${JSON.stringify(data)}`);
-      await axios.post(WEBHOOK_URL, data, {
+      console.log(`[DEBUG] Sending data to database: ${JSON.stringify(data)}`);
+      await axios.post(DATABASE_POST, data, {
         headers: { 'Content-Type': 'application/json' },
       });
-      console.log('[INFO] Data sent to webhook successfully.');
+      console.log('[INFO] Data sent to daabase successfully.');
     } catch (error) {
-      console.error('[ERROR] Failed to send data to webhook:', error.response?.data || error.message);
+      console.error('[ERROR] Failed to send data to daabase:', error.response?.data || error.message);
     }
   }
 
@@ -150,28 +143,25 @@ export class ScrapeService {
       }
     }
 
-    // Mengirimkan data dan menyimpan gambar satu per satu
     for (const post of posts) {
       const payload = {
         text: post.text,
-        images: post.images.length > 0 ? post.images[0] : "",
+        images: post.images.length > 0 ? post.images[0] : '',
         date: post.date,
       };
 
-      // Jika ada video, kirim email
       if (post.videos.length > 0) {
         console.log(`[INFO] Video found in post: ${post.text || 'No text'} - Video URL: ${post.videos[0]}`);
         this.sendEmail('New Post with Video', `A new post contains a video:\n\nText: ${post.text || 'No text'}\nVideo URL: ${post.videos[0]}`);
       }
 
-      // Jika ada gambar, simpan gambar dan kirim data ke webhook
       if (post.images.length > 0) {
         const firstImage = post.images[0];
         const filename = `${Date.now()}_${firstImage.split('/').pop()}`;
-        await this.saveImage(firstImage, filename);  // Menyimpan gambar
+        await this.saveImage(firstImage, filename);
       }
 
-      await this.sendToWebhook(payload);  // Mengirim data ke webhook
+      await this.sendTodbPostgre(payload);
     }
 
     return posts;
@@ -181,38 +171,18 @@ export class ScrapeService {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
-  
+
     try {
-      // Menentukan URL berdasarkan username
       const url = `https://x.com/${username}`;
       console.log(`[INFO] Navigating to URL: ${url}`);
-  
+
       console.log('[INFO] Opening browser and setting cookies...');
       await this.loadCookies(context);
-  
-      // Navigasi ke URL
+
       await page.goto(url, { waitUntil: 'domcontentloaded' });
-  
-      const posts = await this.scrapePosts(page);
-  
-      if (posts.length === 0) {
-        console.error('[ERROR] No posts found.');
-        return;
-      }
-  
-      console.log('[INFO] Sending posts to webhook and saving images...');
-      for (const { text, images, date } of posts) {
-        // Menyusun payload dengan username
-        const payload = {
-          text,
-          images: images || "",  // Pastikan images memiliki nilai default jika tidak ada gambar
-          date,
-          username,  // Mengganti 'input' menjadi 'username'
-        };
-  
-        await this.sendToWebhook(payload);
-      }
-  
+
+      await this.scrapePosts(page);
+
       console.log('[SUCCESS] All posts processed.');
     } catch (error) {
       console.error('[ERROR] An error occurred:', error.message);
@@ -220,5 +190,12 @@ export class ScrapeService {
       console.log('[INFO] Closing browser...');
       await browser.close();
     }
+  }
+
+  @Cron('0 * * * *') // Menjalankan setiap jam
+  async scrapePeriodically(): Promise<void> {
+    const username = 'coindesk'; // Ganti dengan username target
+    console.log(`[INFO] Running periodic scrape for ${username}`);
+    await this.scrapeAndSend(username);
   }
 }
