@@ -1,22 +1,17 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
+import { ApiTags, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ScrapeService } from './scrape.service';
-import { ApiBody, ApiResponse } from '@nestjs/swagger'; // Import decorators from @nestjs/swagger
 
+@ApiTags('scrape') // Menambahkan tag Swagger
 @Controller('scrape')
 export class ScrapeController {
   constructor(private readonly scrapeService: ScrapeService) {}
 
-  @Post()
-  @ApiBody({ type: Object }) // Specify the type of the body (in this case, a generic Object)
-  @ApiResponse({ status: 200, description: 'Scraping completed successfully.' })
-  @ApiResponse({ status: 400, description: 'Failed to scrape and process data.' })
-  async scrape(@Body() body: { username: string }) {
-    const { username } = body;
-    if (!username) {
-      return { error: 'Username is required.' };
-    }
+  @Get()
+  @ApiExcludeEndpoint() // Menyembunyikan endpoint dari Swagger
+  async scrape() {
     try {
-      await this.scrapeService.scrapeAndSend(username);
+      await this.scrapeService.scrapeAndSend();
       return { message: 'Scraping completed successfully.' };
     } catch (error) {
       return { error: 'Failed to scrape and process data.' };
