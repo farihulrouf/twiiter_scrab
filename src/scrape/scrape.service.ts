@@ -257,7 +257,8 @@ export class ScrapeService {
 
 
 
-  @Cron('*/1 * * * *') // Menjadwalkan setiap 1 menit
+  //@Cron('*/1 * * * *') // Menjadwalkan setiap 1 menit
+  @Cron('0 */1 * * *') // Menjadwalkan setiap 2 jam
   async scrapePeriodically() {
     console.log('[INFO] Running periodic scraping task...');
 
