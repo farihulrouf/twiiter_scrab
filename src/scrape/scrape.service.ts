@@ -13,6 +13,8 @@ export class ScrapeService {
   constructor() { }
 
   // Fungsi untuk meng-scrape post
+
+  // Fungsi untuk meng-scrape post
   async scrapePosts(page: any): Promise<any[]> {
     const posts = [];
     const seenPosts = new Set();
@@ -20,8 +22,9 @@ export class ScrapeService {
     console.log('[INFO] Fetching posts...');
     let lastHeight = 0;
     let retries = 0;
+    const MAX_RETRIES = 10;
 
-    while (retries < 3) {
+    while (retries < MAX_RETRIES) {
       const newPosts = await page.locator('article').evaluateAll((nodes: any[]) =>
         nodes.map((node) => {
           const text = node.innerText || '';
@@ -39,9 +42,14 @@ export class ScrapeService {
           const dateElement = node.querySelector('time');
           const date = dateElement ? dateElement.getAttribute('datetime') : null;
 
-          return { text, images, backgroundImages, date, videos };
+          const linkElement = node.querySelector('a[href*="/status/"]');
+          const linkTweet = linkElement ? linkElement.href : null;
+
+          return { text, images, backgroundImages, date, videos, linkTweet };
         })
       );
+
+      console.log(`[INFO] Found ${newPosts.length} posts on this scroll.`);
 
       for (const post of newPosts) {
         const postId = post.text + post.images.join(',') + post.backgroundImages.join(',') + post.videos.join(',');
@@ -51,23 +59,25 @@ export class ScrapeService {
         }
       }
 
-      console.log(`[INFO] Found ${posts.length} unique posts.`);
+      console.log(`[INFO] Total unique posts so far: ${posts.length}`);
 
       // Scroll the page to load more posts
       await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-      await page.waitForTimeout(Math.random() * 2000 + 1000);
+      await page.waitForTimeout(2000); // Wait for content to load
 
       const currentHeight = await page.evaluate(() => document.body.scrollHeight);
+      console.log(`[INFO] Current height: ${currentHeight}, Last height: ${lastHeight}`);
+
       if (currentHeight === lastHeight) {
         retries++;
-        console.log(`[INFO] No new posts. Retry ${retries}/3.`);
+        console.log(`[INFO] No new posts. Retry ${retries}/${MAX_RETRIES}.`);
       } else {
-        retries = 0;
+        retries = 0;  // Reset retries if new posts are found
       }
+
       lastHeight = currentHeight;
 
-      // Check if there are no new posts after retries limit
-      if (retries >= 3) {
+      if (retries >= MAX_RETRIES) {
         console.log('[INFO] No new posts found after multiple retries. Stopping...');
         break;
       }
@@ -80,9 +90,12 @@ export class ScrapeService {
         images: post.images.length > 0 ? post.images[0] : '',
         date: post.date,
         username: 'coindesk',
+        link_tweet: post.linkTweet,
       };
 
-      // Handle video posts
+      // Send the post data to the database
+
+
       if (post.videos.length > 0) {
         const telegramMessage = `📹 *New Post with Video*\n\n*Text:* ${post.text || 'No text'}\n*Video URL:* ${post.videos[0]}`;
         await sendToTelegramChannel(telegramMessage);
@@ -102,10 +115,13 @@ export class ScrapeService {
       if (post.videos.length > 0) {
         await sendEmail('New Post with Video', `A new post contains a video:\n\nText: ${post.text || 'No text'}\nVideo URL: ${post.videos[0]}`);
       }
+
+
     }
 
     return posts;
   }
+
 
   // Fungsi untuk scrape dan kirim data
   async scrapeAndSend(): Promise<void> {
@@ -119,11 +135,15 @@ export class ScrapeService {
       console.log(`[INFO] Navigating to URL: ${url}`);
 
       console.log('[INFO] Opening browser and setting cookies...');
+
       await loadCookies(context);
+
 
       await page.goto(url, { waitUntil: 'domcontentloaded' });
 
       // Menjalankan proses scrape
+      await page.waitForTimeout(2000); // Menunggu 2 detik untuk menghindari pembatasan scraping
+
       await this.scrapePosts(page);
 
       console.log('[SUCCESS] All posts processed.');
@@ -234,5 +254,5 @@ export class ScrapeService {
 
     await browser.close();
   }
-    
+
 }

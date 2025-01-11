@@ -40,4 +40,12 @@ export class Post {
     nullable: true,
   })
   username: string;
+
+  @Column('text', { nullable: true })
+  @ApiProperty({
+    description: 'Link to the original tweet',
+    example: 'https://twitter.com/user/status/123456789',
+    nullable: true,
+  })
+  link_tweet: string;
 }
