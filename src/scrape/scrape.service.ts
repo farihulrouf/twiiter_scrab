@@ -191,6 +191,10 @@ export class ScrapeService {
     for (const post of currentPosts) {
       const postId = post.text + post.images.join(',') + post.backgroundImages.join(',') + post.videos.join(',');
 
+      // Membuat URL tweet berdasarkan informasi yang ada (misalnya, ID tweet atau bagian dari teks)
+     // const tweetUrl = `https://x.com/${post.username}/status/${postId}`;
+      const tweetUrl = `https://x.com/CoinDesk/status/${postId}`;
+
       // Cek apakah posting ini sudah dilihat sebelumnya
       if (!this.seenPosts.has(postId)) {
         console.log('[INFO] Found a new post:');
@@ -199,6 +203,7 @@ export class ScrapeService {
         console.log(`[INFO] Background Images: ${post.backgroundImages}`);
         console.log(`[INFO] Videos: ${post.videos}`);
         console.log(`[INFO] Date: ${post.date}`);
+        console.log(`[INFO] Tweet URL: ${tweetUrl}`); // Menampilkan URL tweet
 
         // Tandai sebagai sudah dilihat
         this.seenPosts.add(postId);
@@ -211,7 +216,7 @@ export class ScrapeService {
         }
 
         // Kirim data ke Telegram
-        const telegramMessage = `New Post:\n\n*Text:* ${post.text || 'No text'}\n*Date:* ${post.date || 'No date'}`;
+        const telegramMessage = `New Post:\n\n*Text:* ${post.text || 'No text'}\n*Date:* ${post.date || 'No date'}\n*Tweet URL:* ${tweetUrl}`;
         await sendToTelegramChannel(telegramMessage);
 
         // Kirim data ke database
@@ -220,9 +225,9 @@ export class ScrapeService {
           images: post.images.length > 0 ? post.images[0] : '',
           date: post.date,
           username: 'coindesk',
+          link_tweet: tweetUrl, // Simpan URL tweet
         };
         await sendTodbPostgre(payload);
-
 
         if (post.videos.length > 0) {
           await sendEmail('New Post with Video', `A new post contains a video:\n\nText: ${post.text || 'No text'}\nVideo URL: ${post.videos[0]}`);
@@ -233,6 +238,7 @@ export class ScrapeService {
         return; // Keluar setelah menemukan dan memproses posting baru
       }
     }
+
 
     console.log('[INFO] No new posts found.');
   }
