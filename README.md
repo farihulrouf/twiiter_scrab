@@ -58,6 +58,31 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Configure Environment
+```
+EMAIL_USER=xxx@gmail.com
+EMAIL_PASSWORD=xxxxxxx_passsowrdmal
+EMAIL_RECEIVER=xxxx@outlook.com
+
+DB_USER=postgres
+DB_HOST=IP_SERVER
+DB_DATABASE=mydb
+DB_PASSWORD=password
+DB_PORT=5432
+
+TELEGRAM_BOT_TOKEN=7306673186:AAE5cfcL8euVixxIImaetzeoXZR2_token_bot_telegra
+TELEGRAM_CHAT_ID=@chaneliidyouhave
+```
+
+
+
+## Check_post
+```
+http://141.11.25.72:3000/api#/posts/PostController_getPosts
+
+```
+
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
