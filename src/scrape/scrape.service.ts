@@ -183,20 +183,29 @@ export class ScrapeService {
         const dateElement = node.querySelector('time');
         const date = dateElement ? dateElement.getAttribute('datetime') : null;
 
-        return { text, images, backgroundImages, date, videos };
+        // Ambil tweet ID dari atribut atau URL
+        const tweetId = node.querySelector('[data-tweet-id]')?.getAttribute('data-tweet-id') || null;
+
+        // Ambil link tweet dari elemen <a> yang mengandung '/status/'
+        
+        const linkElement = node.querySelector('a[href*="/status/"]');
+        const linkTweet = linkElement ? linkElement.href.split('?')[0] : null;  // This removes any query parameters if present
+
+
+        // Kembalikan semua data posting
+        return { text, images, backgroundImages, date, videos, linkTweet };
       })
     );
 
     // Loop untuk cek apakah ada posting baru
     for (const post of currentPosts) {
-      const postId = post.text + post.images.join(',') + post.backgroundImages.join(',') + post.videos.join(',');
+      if (!post.linkTweet) continue; // Pastikan tweetId ada
 
-      // Membuat URL tweet berdasarkan informasi yang ada (misalnya, ID tweet atau bagian dari teks)
-     // const tweetUrl = `https://x.com/${post.username}/status/${postId}`;
-      const tweetUrl = `https://x.com/CoinDesk/status/${postId}`;
+      // Membuat URL tweet berdasarkan tweetId jika linkTweet kosong
+      const tweetUrl = post.linkTweet || `https://x.com/CoinDesk/status/${post.linkTweet}`;
 
       // Cek apakah posting ini sudah dilihat sebelumnya
-      if (!this.seenPosts.has(postId)) {
+      if (!this.seenPosts.has(post.linkTweet)) {
         console.log('[INFO] Found a new post:');
         console.log(`[INFO] Text: ${post.text}`);
         console.log(`[INFO] Images: ${post.images}`);
@@ -206,7 +215,7 @@ export class ScrapeService {
         console.log(`[INFO] Tweet URL: ${tweetUrl}`); // Menampilkan URL tweet
 
         // Tandai sebagai sudah dilihat
-        this.seenPosts.add(postId);
+        this.seenPosts.add(post.linkTweet);
 
         // Proses posting baru
         if (post.images.length > 0) {
@@ -224,7 +233,7 @@ export class ScrapeService {
           text: post.text,
           images: post.images.length > 0 ? post.images[0] : '',
           date: post.date,
-          username: 'coindesk',
+          username: 'CoinDesk',
           link_tweet: tweetUrl, // Simpan URL tweet
         };
         await sendTodbPostgre(payload);
@@ -239,9 +248,9 @@ export class ScrapeService {
       }
     }
 
-
     console.log('[INFO] No new posts found.');
   }
+
 
 
 
