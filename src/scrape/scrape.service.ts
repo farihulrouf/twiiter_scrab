@@ -157,104 +157,87 @@ export class ScrapeService {
 
   // Fungsi untuk memeriksa dan menyaring postingan baru
 
-
   async scrapePostsAndCheckNew(page: Page): Promise<void> {
-    console.log('[INFO] Checking for new posts...');
+    console.log('[INFO] Scraping tweets...');
 
-    // Ambil semua elemen artikel di halaman
-    const currentPosts = await page.locator('article').evaluateAll((nodes: any[]) =>
-      nodes.map((node) => {
-        const text = node.innerText || '';
-        const images = Array.from(node.querySelectorAll('img') as NodeListOf<HTMLImageElement>)
-          .map((img) => img.src)
-          .filter((src) => src.startsWith('https://pbs.twimg.com/card_img/')); // Filter gambar yang dimulai dengan 'https://pbs.twimg.com/card_img/'
+    // Tunggu hingga gambar dimuat
+    await page.waitForSelector('a[href*="/status/"]', { timeout: 10000 });
 
-        // Ambil background images dengan filter yang sesuai
-        const backgroundImages = Array.from(node.querySelectorAll('*'))
+    // Scrape tweets dan simpan dalam array
+    const scrapedTweets = await page.locator('article').evaluateAll((nodes) => {
+      return nodes.map((node) => {
+        const text = node.textContent || '';
+
+        // Ambil link foto dari <a href="/CoinDesk/status/{id_status}/photo/1">
+        const linkTweet = (node.querySelector('a[href*="/status/"]') as HTMLAnchorElement)?.href || null;
+
+        // Ambil gambar dari <img> dan background-image dari div
+        const images: string[] = [];
+        const imgElements = node.querySelectorAll('img[src^="https://pbs.twimg.com/media/"]');
+        imgElements.forEach((img) => {
+          images.push((img as HTMLImageElement).src);
+        });
+
+        const backgroundImages = Array.from(node.querySelectorAll<HTMLElement>('*'))
           .map((element) => {
-            const bgImage = window.getComputedStyle(element as Element).getPropertyValue('background-image');
-            return bgImage && bgImage !== 'none' ? bgImage.replace(/url\((['"]?)(.*?)\1\)/, '$2') : null;
+            const bgImage = window.getComputedStyle(element).getPropertyValue('background-image');
+            return bgImage.startsWith('url("https://pbs.twimg.com/media/")')
+              ? bgImage.replace(/url\((['"]?)(.*?)\1\)/, '$2')
+              : null;
           })
-          .filter((bg) => bg && bg.startsWith('https://pbs.twimg.com/card_img/')); // Filter background images sesuai
+          .filter((bg): bg is string => !!bg);
 
-        const videoElements = node.querySelectorAll('video');
-        const videos = Array.from(videoElements).map((video: HTMLVideoElement) => video.src).filter(Boolean);
+        const allImages = [...images, ...backgroundImages];
 
-        const dateElement = node.querySelector('time');
-        const date = dateElement ? dateElement.getAttribute('datetime') : null;
+        const date = node.querySelector('time')?.getAttribute('datetime') || null;
 
-        // Ambil tweet ID dari atribut atau URL
-        const tweetId = node.querySelector('[data-tweet-id]')?.getAttribute('data-tweet-id') || null;
+        return { text, images: allImages, date, linkTweet };
+      });
+    });
 
-        // Ambil link tweet dari elemen <a> yang mengandung '/status/'
-        
-        const linkElement = node.querySelector('a[href*="/status/"]');
-        const linkTweet = linkElement ? linkElement.href.split('?')[0] : null;  // This removes any query parameters if present
+    console.log('[DEBUG] Scraped Tweets:', scrapedTweets);
 
+    // Filter tweet berdasarkan waktu (4 jam terakhir)
+    const fourHoursAgo = new Date().getTime() - 1 * 60 * 60 * 1000;
+    const recentTweets = scrapedTweets.filter((tweet) => {
+      if (!tweet.date) return false;
+      const tweetDate = new Date(tweet.date).getTime();
+      return tweetDate >= fourHoursAgo;
+    });
 
-        // Kembalikan semua data posting
-        return { text, images, backgroundImages, date, videos, linkTweet };
-      })
-    );
+    console.log('[DEBUG] Filtered recent tweets:', recentTweets);
 
-    // Loop untuk cek apakah ada posting baru
-    for (const post of currentPosts) {
-      if (!post.linkTweet) continue; // Pastikan tweetId ada
+    // Kirimkan data tweet satu per satu
+    for (const tweet of recentTweets) {
+      console.log('[INFO] Sending tweet to the webhook...');
+      await sendTodbPostgre({
+        text: tweet.text,
+        images: tweet.images.length > 0 ? tweet.images[0] : '',
+        date: tweet.date,
+        username: 'coindesk',
+        link_tweet: tweet.linkTweet,
+      });
 
-      // Membuat URL tweet berdasarkan tweetId jika linkTweet kosong
-      const tweetUrl = post.linkTweet || `https://x.com/CoinDesk/status/${post.linkTweet}`;
+      // Send the post to Telegram if necessary
+      await sendToTelegramChannel(`New Tweet: ${tweet.text}`);
 
-      // Cek apakah posting ini sudah dilihat sebelumnya
-      if (!this.seenPosts.has(post.linkTweet)) {
-        console.log('[INFO] Found a new post:');
-        console.log(`[INFO] Text: ${post.text}`);
-        console.log(`[INFO] Images: ${post.images}`);
-        console.log(`[INFO] Background Images: ${post.backgroundImages}`);
-        console.log(`[INFO] Videos: ${post.videos}`);
-        console.log(`[INFO] Date: ${post.date}`);
-        console.log(`[INFO] Tweet URL: ${tweetUrl}`); // Menampilkan URL tweet
+      // Handle images
+      if (tweet.images.length > 0) {
+        const firstImage = tweet.images[0];
+        const filename = `${Date.now()}_${firstImage.split('/').pop()}`;
+        await saveImage(firstImage, filename);
+      }
 
-        // Tandai sebagai sudah dilihat
-        this.seenPosts.add(post.linkTweet);
-
-        // Proses posting baru
-        if (post.images.length > 0) {
-          const firstImage = post.images[0];
-          const filename = `${Date.now()}_${firstImage.split('/').pop()}`;
-          await saveImage(firstImage, filename); // Simpan gambar
-        }
-
-        // Kirim data ke Telegram
-        const telegramMessage = `New Post:\n\n*Text:* ${post.text || 'No text'}\n*Date:* ${post.date || 'No date'}\n*Tweet URL:* ${tweetUrl}`;
-        await sendToTelegramChannel(telegramMessage);
-
-        // Kirim data ke database
-        const payload = {
-          text: post.text,
-          images: post.images.length > 0 ? post.images[0] : '',
-          date: post.date,
-          username: 'CoinDesk',
-          link_tweet: tweetUrl, // Simpan URL tweet
-        };
-        await sendTodbPostgre(payload);
-
-        if (post.videos.length > 0) {
-          await sendEmail('New Post with Video', `A new post contains a video:\n\nText: ${post.text || 'No text'}\nVideo URL: ${post.videos[0]}`);
-        }
-
-        // Anda bisa menambahkan logika lain di sini (misalnya kirim email)
-
-        return; // Keluar setelah menemukan dan memproses posting baru
+      // Optionally send email for video posts
+      if (tweet.images.length > 0) {
+        await sendEmail('New Post with Image', `A new post contains an image:\n\nText: ${tweet.text || 'No text'}\nImage URL: ${tweet.images[0]}`);
       }
     }
 
-    console.log('[INFO] No new posts found.');
+    if (recentTweets.length === 0) {
+      console.log('[INFO] No new tweets found within the last 4 hours.');
+    }
   }
-
-
-
-
-
 
 
   //@Cron('*/1 * * * *') // Menjadwalkan setiap 1 menit
