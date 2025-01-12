@@ -4,9 +4,17 @@ import { saveImage, sendToTelegramChannel, sendEmail, sendTodbPostgre } from '..
 import { Cron } from '@nestjs/schedule';
 import { loadCookies } from '../utils/loadCookies';  // Import fungsi loadCookies
 import { Page } from 'playwright';
+import * as dotenv from 'dotenv';
+
+dotenv.config();  // Memuat variabel lingkungan dari .env
+
+const cronSchedule = process.env.CRON_SCHEDULE || '*/1 * * * *';  // Default ke '*/1 * * * *' jika tidak ada nilai
+const cronInterval = parseInt(cronSchedule.split(' ')[0].replace('*/', ''), 10);
+
 
 @Injectable()
 export class ScrapeService {
+
   private lastCheckedTimestamp: number = Date.now();  // Properti untuk menyimpan timestamp pengecekan terakhir
   private seenPosts: Set<string> = new Set(); // Tambahkan properti ini
 
@@ -198,11 +206,13 @@ export class ScrapeService {
     console.log('[DEBUG] Scraped Tweets:', scrapedTweets);
 
     // Filter tweet berdasarkan waktu (1 jam terakhir)
-    const fourHoursAgo = new Date().getTime() - 1 * 60 * 60 * 1000;
+    //const fourHoursAgo = new Date().getTime() - 1 * 60 * 60 * 1000;
+    const oneMinuteAgo = new Date().getTime() - cronInterval * 60 * 1000;
+
     const recentTweets = scrapedTweets.filter((tweet) => {
       if (!tweet.date) return false;
       const tweetDate = new Date(tweet.date).getTime();
-      return tweetDate >= fourHoursAgo;
+      return tweetDate >= oneMinuteAgo;
     });
 
     console.log('[DEBUG] Filtered recent tweets:', recentTweets);
@@ -235,13 +245,15 @@ export class ScrapeService {
     }
 
     if (recentTweets.length === 0) {
-      console.log('[INFO] No new tweets found within the last 1 hours.');
+      console.log('[INFO] No new tweets found within the last 1 minute.');
     }
   }
 
 
   //@Cron('*/1 * * * *') // Menjadwalkan setiap 1 menit
-  @Cron('0 */1 * * *') // Menjadwalkan setiap 2 jam
+  //@Cron('0 */1 * * *') // Menjadwalkan setiap 2 jam
+  @Cron(cronSchedule) // Menggunakan jadwal yang didapat dari .env
+
   async scrapePeriodically() {
     console.log('[INFO] Running periodic scraping task...');
 

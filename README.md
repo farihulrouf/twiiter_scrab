@@ -72,6 +72,12 @@ DB_PORT=5432
 
 TELEGRAM_BOT_TOKEN=7306673186:AAE5cfcL8euVixxIImaetzeoXZR2_token_bot_telegra
 TELEGRAM_CHAT_ID=@chaneliidyouhave
+
+CRON_SCHEDULE=*/1 * * * *
+
+
+.env
+
 ```
 
 ## Noted Create Password gmail SMTP to Your account 
@@ -88,6 +94,7 @@ copy paster in EMAIL_PASSWORD, you can see Configure Environment above
 
 5-TELEGRAM_CHAT_ID you can setting for reciever Telegram channel for example in this poroject, i v send to chanel https://web.telegram.org/k/#@coindeskpost (Note your boot have been register in this chanel)
 
+6-CRON_SCHEDULE=*/1 * * * *  you can change interval schedule 1 minute or 2 minutes, you can change number
 
 ```
 ##
