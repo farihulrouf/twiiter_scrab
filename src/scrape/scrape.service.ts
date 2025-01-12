@@ -197,7 +197,7 @@ export class ScrapeService {
 
     console.log('[DEBUG] Scraped Tweets:', scrapedTweets);
 
-    // Filter tweet berdasarkan waktu (4 jam terakhir)
+    // Filter tweet berdasarkan waktu (1 jam terakhir)
     const fourHoursAgo = new Date().getTime() - 1 * 60 * 60 * 1000;
     const recentTweets = scrapedTweets.filter((tweet) => {
       if (!tweet.date) return false;
@@ -235,7 +235,7 @@ export class ScrapeService {
     }
 
     if (recentTweets.length === 0) {
-      console.log('[INFO] No new tweets found within the last 4 hours.');
+      console.log('[INFO] No new tweets found within the last 1 hours.');
     }
   }
 
