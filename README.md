@@ -74,6 +74,23 @@ TELEGRAM_BOT_TOKEN=7306673186:AAE5cfcL8euVixxIImaetzeoXZR2_token_bot_telegra
 TELEGRAM_CHAT_ID=@chaneliidyouhave
 ```
 
+## Noted Create Password gmail SMTP to Your account 
+```
+1-Please create password for user gmail in this link
+https://support.google.com/mail/answer/185833?hl=id
+
+2-afther you create password for your mail sender 
+copy paster in EMAIL_PASSWORD, you can see Configure Environment above
+
+3-EMAIL_RECEIVER=xxxx@outlook.com you can setting about email reciever
+
+4-TELEGRAM_BOT_TOKEN you can create token in botFather https://core.telegram.org/bots/tutorial
+
+5-TELEGRAM_CHAT_ID you can setting for reciever Telegram channel for example in this poroject, i v send to chanel https://web.telegram.org/k/#@coindeskpost (Note your boot have been register in this chanel)
+
+
+```
+##
 
 
 ## Check_post
